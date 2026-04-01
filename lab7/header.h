@@ -77,9 +77,9 @@ typedef struct MIPS_Instruction
 
         unsigned int machineCode;  // returned machineCode
 }MIPS_Instruction;
-MIPS_Instruction Instruction_storage[MAX_SIZE]; // instructions used structure
+extern MIPS_Instruction Instruction_storage[MAX_SIZE]; // instructions used structure
 
-int regFile[N_REG];
+extern int regFile[N_REG];
 
 
 
@@ -87,8 +87,8 @@ int regFile[N_REG];
  * Memory representation in the simulator.
  *      At each location, it is either an instruction or data.
  */
-char Data_storage[MAX_SIZE];
-unsigned int totalDataByte; // the number of bytes used in Data section
+extern char Data_storage[MAX_SIZE];
+extern unsigned int totalDataByte; // the number of bytes used in Data section
 #define BUFMAX 128
 
  enum segment {DATA=1, TEXT=2};
@@ -107,7 +107,7 @@ unsigned int totalDataByte; // the number of bytes used in Data section
  /**
   * Label table. Used only internally by parser.
   */
-labelType labelTab[MAX_LABEL];
+extern labelType labelTab[MAX_LABEL];
 void parse_MIPS (FILE *fp);
 void setup_memory();
 void loadCodeToMem(char *mem); // added this parameter to fix mismatch, double check later.

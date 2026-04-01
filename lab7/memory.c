@@ -46,7 +46,7 @@ char *init_memory()
 
     // step 1: Start filling in the memory contents with
     for (size_t i = 0; i < MEM_SIZE; i++)
-        mem[i] = (char)rand_generator();
+        mem[i] = 0;
 
     return mem;
 }
@@ -93,7 +93,7 @@ void memory_dump(const char *base_address, const int offset, unsigned int dumpsi
 
     for (unsigned int i = 0; i < dumpsize; i += DUMP_LINE) {
         // Print the actual memory address
-        printf("%08X: ", (unsigned int)(size_t)(base_address + offset + i));
+        printf("%016llX: ", (unsigned long long)(base_address + offset + i)); // changed to work on windows 64-bit system
 
         // Print hex bytes (16 per row)
         for (int j = 0; j < DUMP_LINE; j++) {
