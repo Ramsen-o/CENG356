@@ -32,10 +32,12 @@ void CPU(char *mem){
 
       // Lab 9: Finish the execution of the code.
       // Only finish this part when the CPU_Decode is done.
-      // CPU_Execution(opcode, machineCode, mem);
+      CPU_Execution(opcode, machineCode, mem);
     }while (1);  // This is an infinite while loop
                  // When you fetch a machineCode of 00000000, the loop breaks.
+    printf("\n======== REGISTER FILE ========\n");
     printRegisterFiles();     // After the code execution, print all the register contents on screen.
+    printf("\n======== DATA MEMORY DUMP ========\n");
     printDataMemoryDump(mem); // After the code execution, print the memory dump of the data section.
 }
 
@@ -43,7 +45,7 @@ void CPU(char *mem){
 //         read the code section from memory and
 //         get the 32-bit machine code from the memory.
 unsigned int CPU_fetchCode(char *mem, int codeOffset){
-    return read_dword(mem, codeOffset);
+    return *(unsigned int *)(mem + codeOffset);
 }
 
 // Lab 8 - Step 2. Finish the CPU_Decode function to
@@ -66,38 +68,113 @@ unsigned char CPU_Decode(unsigned int machineCode){
 }
 // Lab 9: Finish the function CPU_Execution to run all the instructions.
 void CPU_Execution(unsigned char opcode, unsigned int machineCode, char *mem){
-    unsigned char rt = 0;
-    switch (opcode)  // execute different functions when opcode is set differently. 
+    unsigned char rs, rt, rd;
+    short imm;
+    switch (opcode)  // execute different functions when opcode is set differently.
     {
 		// This is an example how lab will be executed. Please follow this example and finish exections of the code.
-		// Hint: you need to implement the following instructions here: 
+		// Hint: you need to implement the following instructions here:
 		//       la, add, lb, bge, lw, sw, addi, j
-        case 0b101111:   //"la" instruction. 
+        case 0b101111:   //"la" instruction.
             // assign the address rt = immediate address stored in machineCode;
-            // first find the rt index in the register array. 
-            rt = (machineCode & 0x001F0000) >> 16; 
+            // first find the rt index in the register array.
+            rt = (machineCode & 0x001F0000) >> 16;
             // assign the address stored in immediate field to regFile[rt];
-            regFile[rt] = machineCode & 0x0000FFFF;  // get the last 16 bit as address. 
-            // update PCregister ???? Pay special attention to branch instructions. 
-            PCRegister += 4;
+            regFile[rt] = machineCode & 0x0000FFFF;  // get the last 16 bit as address.
             if (DEBUG_CODE){   // print the hints to the user in DEBUG_MODE
                 printf("Code Executed: %08X\n", machineCode);
-                printf("****** PC Register is %08X ******\n", PCRegister);                
-            }            
+                printf("****** PC Register is %08X ******\n", PCRegister);
+            }
             break;
-        case 0b100000://"lb" instruction. 
-		    //....
-			break;
-		
-        // continue to all the other cases used in the program.
-        // case ......:    
-            
-            
-        // Should never go to default part when complete. Otherwise, that is a mistake. 
+
+        case 0b100000:
+            if ((machineCode >> 26) == 0) {
+                // "add" R-type instruction (function code 0x20, opcode bits = 0)
+                rs = (machineCode >> 21) & 0x1F;
+                rt = (machineCode >> 16) & 0x1F;
+                rd = (machineCode >> 11) & 0x1F;
+                regFile[rd] = regFile[rs] + regFile[rt];
+                if (DEBUG_CODE) {
+                    printf("Code Executed: %08X\n", machineCode);
+                    printf("****** PC Register is %08X ******\n", PCRegister);
+                }
+            } else {
+                // "lb" I-type instruction (opcode 0b100000)
+                rs  = (machineCode >> 21) & 0x1F;
+                rt  = (machineCode >> 16) & 0x1F;
+                imm = (short)(machineCode & 0xFFFF);  // sign-extended offset
+                regFile[rt] = (signed char)(mem[DATASECTION + regFile[rs] + imm]);
+                if (DEBUG_CODE) {
+                    printf("Code Executed: %08X\n", machineCode);
+                    printf("****** PC Register is %08X ******\n", PCRegister);
+                }
+            }
+            break;
+
+        case 0b110010:   //"bge" instruction.
+            // if regFile[rs] >= regFile[rt], jump to target word address (imm << 2)
+            rs  = (machineCode >> 21) & 0x1F;
+            rt  = (machineCode >> 16) & 0x1F;
+            imm = (short)(machineCode & 0xFFFF);  // stored as word address (label >> 2)
+            if (regFile[rs] >= regFile[rt]) {
+                PCRegister = (unsigned int)(imm) << 2;  // convert word address to byte address
+            }
+            if (DEBUG_CODE) {
+                printf("Code Executed: %08X\n", machineCode);
+                printf("****** PC Register is %08X ******\n", PCRegister);
+            }
+            break;
+
+        case 0b100011:   //"lw" instruction.
+            // load a 32-bit word from data memory into regFile[rt]
+            rs  = (machineCode >> 21) & 0x1F;
+            rt  = (machineCode >> 16) & 0x1F;
+            imm = (short)(machineCode & 0xFFFF);
+            regFile[rt] = *(int *)(mem + DATASECTION + regFile[rs] + imm);
+            if (DEBUG_CODE) {
+                printf("Code Executed: %08X\n", machineCode);
+                printf("****** PC Register is %08X ******\n", PCRegister);
+            }
+            break;
+
+        case 0b101011:   //"sw" instruction.
+            // store regFile[rt] as a 32-bit word into data memory
+            rs  = (machineCode >> 21) & 0x1F;
+            rt  = (machineCode >> 16) & 0x1F;
+            imm = (short)(machineCode & 0xFFFF);
+            *(int *)(mem + DATASECTION + regFile[rs] + imm) = regFile[rt];
+            if (DEBUG_CODE) {
+                printf("Code Executed: %08X\n", machineCode);
+                printf("****** PC Register is %08X ******\n", PCRegister);
+            }
+            break;
+
+        case 0b001000:   //"addi" instruction.
+            // regFile[rt] = regFile[rs] + sign-extended immediate
+            rs  = (machineCode >> 21) & 0x1F;
+            rt  = (machineCode >> 16) & 0x1F;
+            imm = (short)(machineCode & 0xFFFF);
+            regFile[rt] = regFile[rs] + imm;
+            if (DEBUG_CODE) {
+                printf("Code Executed: %08X\n", machineCode);
+                printf("****** PC Register is %08X ******\n", PCRegister);
+            }
+            break;
+
+        case 0b000010:   //"j" instruction.
+            // unconditional jump to word address stored in lower 26 bits
+            PCRegister = (machineCode & 0x03FFFFFF) << 2;
+            if (DEBUG_CODE) {
+                printf("Code Executed: %08X\n", machineCode);
+                printf("****** PC Register is %08X ******\n", PCRegister);
+            }
+            break;
+
+        // Should never go to default part when complete. Otherwise, that is a mistake.
         default:
             printf("Wrong instruction! You need to fix this instruction %02X %08X\n", opcode,  machineCode);
             system("PAUSE");
-            exit(3);  // exit the program if running here.     
+            exit(3);  // exit the program if running here.
             break;
     }
 }
